@@ -37,7 +37,7 @@ func main() {
 			if err != nil {
 				fmt.Println("Need valid args or command invalid")
 			}
-			fmt.Print(string(out))
+			fmt.Println(string(out))
 		}
 
 	}
