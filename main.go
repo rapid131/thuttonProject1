@@ -9,35 +9,72 @@ import (
 )
 
 func main() {
+	//create scanner
 	scanner := bufio.NewReader(os.Stdin)
+	fmt.Println("Welcome to shell, please enter commands")
+	//for loop
 	for {
-		fmt.Print(">>>")
 		userinput, _ := scanner.ReadString('\n')
-		args := strings.Fields(userinput)
-		switch args[0] {
+		list := strings.Fields(userinput)
+		switch list[0] {
 		case "exit":
 			os.Exit(0)
 		case "cd":
-			if len(args) < 2 {
+			if len(list) < 2 {
 				//Got this from here https://stackoverflow.com/questions/46028707/how-to-change-the-current-directory-in-go
-				home, _ := os.UserHomeDir()
+				home, er := os.UserHomeDir()
 				err := os.Chdir(home)
-				if err != nil {
+				if er != nil {
 					fmt.Println(err)
 				}
 			} else {
-				os.Chdir(args[1])
+				os.Chdir(list[1])
 			}
 		case "whoami":
 			fmt.Println("thutton2 Thomas Hutton")
-		default:
+		case "ls":
 			// This command I understood from here https://stackoverflow.com/questions/22781788/how-could-i-pass-a-dynamic-set-of-arguments-to-gos-command-exec-command
-			command := exec.Command(args[0], args[1:]...)
+			command := exec.Command("ls", list[1:]...)
 			out, err := command.Output()
 			if err != nil {
-				fmt.Println("Need valid args or command invalid")
+				fmt.Println("Need valid args")
+			} else {
+				fmt.Println(string(out))
 			}
-			fmt.Println(string(out))
+		case "wc":
+			command := exec.Command("wc", list[1:]...)
+			out, err := command.Output()
+			if err != nil {
+				fmt.Println("Need valid args")
+			} else {
+				fmt.Println(string(out))
+			}
+		case "mkdir":
+			command := exec.Command("mkdir", list[1:]...)
+			out, err := command.Output()
+			if err != nil {
+				fmt.Println("Need valid args")
+			} else {
+				fmt.Println(string(out))
+			}
+		case "cp":
+			command := exec.Command("cp", list[1:]...)
+			out, err := command.Output()
+			if err != nil {
+				fmt.Println("Need valid args")
+			} else {
+				fmt.Println(string(out))
+			}
+		case "mv":
+			command := exec.Command("mv", list[1:]...)
+			out, err := command.Output()
+			if err != nil {
+				fmt.Println("Need valid args")
+			} else {
+				fmt.Println(string(out))
+			}
+		default:
+			fmt.Println("Invalid Command")
 		}
 
 	}
