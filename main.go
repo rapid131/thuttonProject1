@@ -17,6 +17,7 @@ import (
 )
 
 func main() {
+	//got info about bufio and strings from here https://tutorialedge.net/golang/reading-console-input-golang/
 	//create scanner
 	scanner := bufio.NewReader(os.Stdin)
 	fmt.Println("Welcome to shell, please enter commands")
