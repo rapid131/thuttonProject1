@@ -13,11 +13,15 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"project1/filesystem"
 	"strings"
-	//"thuttonProject1/filesystem"
 )
 
 func main() {
+	filesystem.InitializeDisk()
+	disk := filesystem.VirtualDisk
+	fmt.Println(disk)
+	fmt.Println("what the heck")
 	//got info about bufio and strings from here https://tutorialedge.net/golang/reading-console-input-golang/
 	//create scanner
 	scanner := bufio.NewReader(os.Stdin)
