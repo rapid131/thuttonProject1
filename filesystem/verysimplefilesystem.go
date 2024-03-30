@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"time"
 )
@@ -32,9 +33,9 @@ type DirectoryEntry struct {
 }
 
 type SuperBlock struct {
-	Inodeoffset       byte
-	Blockbitmapoffset byte
-	Inodebitmapoffset byte
+	Inodeoffset       int
+	Blockbitmapoffset int
+	Inodebitmapoffset int
 }
 
 var VirtualDisk [6044][1024]byte
@@ -90,14 +91,22 @@ func InitializeDisk() {
 		VirtualDisk[2][i] = bitmapBytesBlocks[i]
 	}
 	fmt.Println(len(bitmapBytesBlocks))
-	err = enc.Encode(Inodes)
-	if err != nil {
-		log.Fatal(err)
+	var j int
+	var k int
+	j = 3
+	k = 0
+	for i := 0; i < 120; i++ {
+		enc.Encode(Inodes[i])
+		copy(VirtualDisk[j][k:], encoder.Bytes())
+		k += len(encoder.Bytes())
+		if 1024-k < 100 {
+			j++
+			k = 0
+		}
+		encoder.Reset()
+		fmt.Println(len(encoder.Bytes()))
 	}
-	//for i := range encoder.Bytes() {
-	//	VirtualDisk[3][i] = encoder.Bytes()[i]
-	//}
-	fmt.Println(len(encoder.Bytes()))
+
 }
 func boolsToBytes(t []bool) []byte {
 	b := make([]byte, (len(t)+7)/8)
@@ -122,12 +131,31 @@ func bytesToBools(b []byte) []bool {
 }
 func ReadSuperblock() (SuperBlock, error) {
 	var superblock SuperBlock
-
-	// Read the superblock from the virtual disk
 	decoder := gob.NewDecoder(bytes.NewReader(VirtualDisk[0][:]))
 	if err := decoder.Decode(&superblock); err != nil {
 		return superblock, err
 	}
-
 	return superblock, nil
+}
+func ReadInodes() ([]Inode, error) {
+	inodeOffset := 3
+
+	var inodeBytes []byte
+	for i := inodeOffset; i < 10; i++ {
+		inodeBytes = append(inodeBytes, VirtualDisk[i][:]...)
+	}
+	fmt.Println("Encoded Inode Bytes:", inodeBytes)
+	inodes := make([]Inode, Numberofinodes)
+	decoder := gob.NewDecoder(bytes.NewReader(inodeBytes))
+	for {
+		var inode Inode
+		if err := decoder.Decode(&inode); err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		inodes = append(inodes, inode)
+	}
+
+	return inodes, nil
 }
