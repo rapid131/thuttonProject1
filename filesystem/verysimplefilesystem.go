@@ -3,6 +3,7 @@ package filesystem
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"time"
 )
@@ -88,12 +89,27 @@ func InitializeDisk() {
 	for i := range bitmapBytesBlocks {
 		VirtualDisk[2][i] = bitmapBytesBlocks[i]
 	}
-
-	for i, inode := range Inodes {
-		var buf bytes.Buffer
-		gob.NewEncoder(&buf).Encode(inode)
-		copy(VirtualDisk[3+i][:], buf.Bytes())
+	fmt.Println(Inodes)
+	var buf bytes.Buffer
+	gob.NewEncoder(&buf).Encode(Inodes)
+	data := buf.Bytes()
+	fmt.Println(data)
+	blockSize := Blocksize
+	inodeOffset := int(superblock.Inodeoffset)
+	for i := 0; i < len(data); i += blockSize {
+		blockIndex := inodeOffset + i/blockSize
+		end := i + blockSize
+		if end > len(data) {
+			end = len(data)
+		}
+		copy(VirtualDisk[blockIndex][:], data[i:end])
 	}
+	var testInodes Inode
+	fmt.Println(data)
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	err = decoder.Decode(&inode)
+	fmt.Println(err)
+	fmt.Println(testInodes)
 } //end of initialize disk
 func boolsToBytes(t []bool) []byte {
 	b := make([]byte, (len(t)+7)/8)
@@ -125,14 +141,20 @@ func ReadSuperblock() SuperBlock {
 	return superblock
 }
 func ReadInodesFromDisk() []Inode {
-	superblock := ReadSuperblock()
-	inodeOffset := int(superblock.Inodeoffset)
 	var inodes []Inode
-	for i := inodeOffset; i < inodeOffset+len(Inodes); i++ {
-		var inode Inode
-		buf := bytes.NewBuffer(VirtualDisk[i][:])
-		gob.NewDecoder(buf).Decode(&inode)
-		inodes = append(inodes, inode)
+	var blockInodes []Inode
+	var blockData []byte
+	for i := 3; i < 9; i++ {
+		for j := 0; j < 1024; j++ {
+			blockData = append(blockData, VirtualDisk[i][j])
+			if len(blockData) > 5386 {
+				break
+			}
+		}
 	}
+	fmt.Println(blockData)
+	buf := bytes.NewBuffer(blockData[:])
+	gob.NewDecoder(buf).Decode(&blockInodes)
+	inodes = append(inodes, blockInodes...)
 	return inodes
 }
