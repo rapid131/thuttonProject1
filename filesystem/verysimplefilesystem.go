@@ -3,8 +3,6 @@ package filesystem
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
-	"io"
 	"log"
 	"time"
 )
@@ -90,24 +88,13 @@ func InitializeDisk() {
 	for i := range bitmapBytesBlocks {
 		VirtualDisk[2][i] = bitmapBytesBlocks[i]
 	}
-	fmt.Println(len(bitmapBytesBlocks))
-	var j int
-	var k int
-	j = 3
-	k = 0
-	for i := 0; i < 120; i++ {
-		enc.Encode(Inodes[i])
-		copy(VirtualDisk[j][k:], encoder.Bytes())
-		k += len(encoder.Bytes())
-		if 1024-k < 100 {
-			j++
-			k = 0
-		}
-		encoder.Reset()
-		fmt.Println(len(encoder.Bytes()))
-	}
 
-}
+	for i, inode := range Inodes {
+		var buf bytes.Buffer
+		gob.NewEncoder(&buf).Encode(inode)
+		copy(VirtualDisk[3+i][:], buf.Bytes())
+	}
+} //end of initialize disk
 func boolsToBytes(t []bool) []byte {
 	b := make([]byte, (len(t)+7)/8)
 	for i, x := range t {
@@ -129,33 +116,23 @@ func bytesToBools(b []byte) []bool {
 	}
 	return t
 }
-func ReadSuperblock() (SuperBlock, error) {
+func ReadSuperblock() SuperBlock {
 	var superblock SuperBlock
 	decoder := gob.NewDecoder(bytes.NewReader(VirtualDisk[0][:]))
 	if err := decoder.Decode(&superblock); err != nil {
-		return superblock, err
+		return superblock
 	}
-	return superblock, nil
+	return superblock
 }
-func ReadInodes() ([]Inode, error) {
-	inodeOffset := 3
-
-	var inodeBytes []byte
-	for i := inodeOffset; i < 10; i++ {
-		inodeBytes = append(inodeBytes, VirtualDisk[i][:]...)
-	}
-	fmt.Println("Encoded Inode Bytes:", inodeBytes)
-	inodes := make([]Inode, Numberofinodes)
-	decoder := gob.NewDecoder(bytes.NewReader(inodeBytes))
-	for {
+func ReadInodesFromDisk() []Inode {
+	superblock := ReadSuperblock()
+	inodeOffset := int(superblock.Inodeoffset)
+	var inodes []Inode
+	for i := inodeOffset; i < inodeOffset+len(Inodes); i++ {
 		var inode Inode
-		if err := decoder.Decode(&inode); err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		}
+		buf := bytes.NewBuffer(VirtualDisk[i][:])
+		gob.NewDecoder(buf).Decode(&inode)
 		inodes = append(inodes, inode)
 	}
-
-	return inodes, nil
+	return inodes
 }

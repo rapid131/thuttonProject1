@@ -20,6 +20,8 @@ import (
 func main() {
 	filesystem.InitializeDisk()
 	disk := filesystem.VirtualDisk
+	inodes := filesystem.ReadInodesFromDisk()
+	fmt.Println(inodes)
 	fmt.Println(disk)
 	fmt.Println("what the heck")
 	//got info about bufio and strings from here https://tutorialedge.net/golang/reading-console-input-golang/
