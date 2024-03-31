@@ -25,8 +25,8 @@ type Inode struct {
 }
 
 type DirectoryEntry struct {
-	Filename [8]byte
-	Filetype [4]byte
+	Filename string
+	Filetype string
 	Inode    int
 }
 
@@ -43,6 +43,8 @@ var Inodes [120]Inode
 var EndBlockBitmap int
 var EndInodeBitmap int
 var EndInodes int
+var LastInodeBlock int
+var Diskinitialized bool
 
 func InitializeDisk() {
 	var encoder bytes.Buffer
@@ -95,6 +97,7 @@ func InitializeDisk() {
 	EndInodes = len(data)
 	blockSize := Blocksize
 	inodeOffset := int(superblock.Inodeoffset)
+	j := 0
 	for i := 0; i < len(data); i += blockSize {
 		blockIndex := inodeOffset + i/blockSize
 		end := i + blockSize
@@ -102,7 +105,10 @@ func InitializeDisk() {
 			end = len(data)
 		}
 		copy(VirtualDisk[blockIndex][:], data[i:end])
+		j++
 	}
+	Diskinitialized = true
+	LastInodeBlock = j
 } //end of initialize disk
 func boolsToBytes(t []bool) []byte {
 	b := make([]byte, (len(t)+7)/8)
@@ -136,8 +142,9 @@ func ReadSuperblock() SuperBlock {
 func ReadInodesFromDisk() [120]Inode {
 	var inodes [120]Inode
 	var blockData []byte
-	for i := 3; i < 9; i++ {
-		for j := 0; j < 1024; j++ {
+	superblock := ReadSuperblock()
+	for i := superblock.Inodeoffset; i < superblock.Inodeoffset+LastInodeBlock; i++ {
+		for j := 0; j < Blocksize; j++ {
 			blockData = append(blockData, VirtualDisk[i][j])
 			if len(blockData) > EndInodes {
 				break
@@ -150,6 +157,7 @@ func ReadInodesFromDisk() [120]Inode {
 }
 func WriteInodesToDisk(x [120]Inode) {
 	var buf bytes.Buffer
+	j := 0
 	superblock := ReadSuperblock()
 	gob.NewEncoder(&buf).Encode(x)
 	data := buf.Bytes()
@@ -163,5 +171,7 @@ func WriteInodesToDisk(x [120]Inode) {
 			end = len(data)
 		}
 		copy(VirtualDisk[blockIndex][:], data[i:end])
+		j++
 	}
+	LastInodeBlock = j
 }

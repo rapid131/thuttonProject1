@@ -22,6 +22,7 @@ func main() {
 	filesystem.InitializeDisk()
 	disk := filesystem.VirtualDisk
 	inodes := filesystem.ReadInodesFromDisk()
+	fmt.Println(filesystem.LastInodeBlock)
 	fmt.Println(inodes)
 	inodes[1].Datablocks = [4]int{1, 0, 1, 0}
 	inodes[2].Filecreated = time.Now()
