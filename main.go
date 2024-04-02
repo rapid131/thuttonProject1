@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"project1/filesystem"
 	"strings"
-	"time"
 )
 
 func main() {
@@ -24,13 +23,8 @@ func main() {
 	inodes := filesystem.ReadInodesFromDisk()
 	fmt.Println(filesystem.LastInodeBlock)
 	fmt.Println(inodes)
-	inodes[1].Datablocks = [4]int{1, 0, 1, 0}
-	inodes[2].Filecreated = time.Now()
-	inodes[3].IsDirectory = true
-	inodes[4].IsValid = true
-	inodes[0].IsValid = true
-	inodes[119].IsDirectory = true
-	filesystem.WriteInodesToDisk(inodes)
+	filesystem.Open("open", "hello.jpg", 1)
+	filesystem.Open("open", "hello.jpg", 1)
 	inodes = filesystem.ReadInodesFromDisk()
 	fmt.Println(inodes)
 	fmt.Println(disk)
