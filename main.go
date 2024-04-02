@@ -26,6 +26,7 @@ func main() {
 	filesystem.Open("open", "hello.jpg", 1)
 	filesystem.Open("open", "hello.jpg", 1)
 	inodes = filesystem.ReadInodesFromDisk()
+	disk = filesystem.VirtualDisk
 	fmt.Println(inodes)
 	fmt.Println(disk)
 	fmt.Println("what the heck")

@@ -285,6 +285,16 @@ func AddWorkingDirectoryToDisk(directory Directory, datablocks [4]int) {
 		}
 	}
 }
+func EncodeDirectoryEntryToDisk(entry DirectoryEntry, index int) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(entry)
+	if err != nil {
+		log.Fatal(err)
+	}
+	data := buf.Bytes()
+	copy(VirtualDisk[index][:], data)
+}
 func Open(mode string, filename string, searchnode int) {
 	superblock := ReadSuperblock()
 	switch mode {
@@ -326,25 +336,31 @@ func Open(mode string, filename string, searchnode int) {
 			//file not found, create it
 		} else {
 			fmt.Println("Creating new file ", filename, " in working directory ", workingdirectory.Filename)
+			//create a file
 			var newfile DirectoryEntry
 			blockbitmap := bytesToBools(VirtualDisk[superblock.Blockbitmapoffset][:EndBlockBitmap])
 			inodebitmap := bytesToBools(VirtualDisk[superblock.Inodebitmapoffset][:EndInodeBitmap])
 			newfile.Filename = filename
+			//get the first free inode
 			for i := range inodebitmap {
 				if inodebitmap[i] == false {
+					//set the inode features
 					inodebitmap[i] = true
 					newfile.Inode = i
 					inodes[i].Filecreated = time.Now()
 					inodes[i].Filemodified = time.Now()
 					inodes[i].IsDirectory = false
 					inodes[i].IsValid = true
+					//get the first free block
 					for j := range blockbitmap {
 						if blockbitmap[j] == false {
 							blockbitmap[j] = true
 							inodes[i].Datablocks = [4]int{j + superblock.Datablocksoffset, 0, 0, 0}
+							EncodeDirectoryEntryToDisk(newfile, inodes[i].Datablocks[0])
 							break
 						}
 					}
+					//update the working directory
 					workingdirectory.Filenames = append(workingdirectory.Filenames, filename)
 					workingdirectory.Files = append(workingdirectory.Files, i)
 					break
