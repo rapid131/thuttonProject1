@@ -251,14 +251,14 @@ func WriteInodesToDisk(x [120]Inode) {
 }
 func AddBlockBitmapToDisk(x []bool) {
 	bitmapBytesBlocks := boolsToBytes(x[:])
-	EndBlockBitmap = len(bitmapBytesBlocks) - 1
+	EndBlockBitmap = len(bitmapBytesBlocks)
 	for i := range bitmapBytesBlocks {
 		VirtualDisk[2][i] = bitmapBytesBlocks[i]
 	}
 }
 func AddInodeBitmapToDisk(x []bool) {
 	bitmapBytesInode := boolsToBytes(x[:])
-	EndInodeBitmap = len(bitmapBytesInode) - 1
+	EndInodeBitmap = len(bitmapBytesInode)
 	for i := range bitmapBytesInode {
 		VirtualDisk[1][i] = bitmapBytesInode[i]
 	}
