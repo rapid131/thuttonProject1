@@ -285,7 +285,7 @@ func AddWorkingDirectoryToDisk(directory Directory, datablocks [4]int) {
 		}
 	}
 }
-func EncodeDirectoryEntryToDisk(entry DirectoryEntry, index int) {
+func EncodeDirectoryEntryToDisk(entry DirectoryEntry, inode Inode) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(entry)
@@ -293,8 +293,59 @@ func EncodeDirectoryEntryToDisk(entry DirectoryEntry, index int) {
 		log.Fatal(err)
 	}
 	data := buf.Bytes()
-	copy(VirtualDisk[index][:], data)
+
+	if len(data) > (Blocksize * 4) {
+		log.Fatal("Directory entry size exceeds maximum supported size")
+	}
+
+	numBlocks := (len(data) + Blocksize - 1) / Blocksize
+
+	superblock := ReadSuperblock()
+	blockBitmap := bytesToBools(VirtualDisk[superblock.Blockbitmapoffset][:EndBlockBitmap])
+
+	freeBlocks := make([]int, 0)
+	for i := range blockBitmap {
+		if blockBitmap[i] {
+			freeBlocks = append(freeBlocks, i)
+			if len(freeBlocks) == numBlocks {
+				break
+			}
+		}
+	}
+
+	if len(freeBlocks) < numBlocks {
+		log.Fatal("Not enough free blocks available for data")
+	}
+
+	for _, idx := range freeBlocks {
+		blockBitmap[idx] = true
+	}
+	AddBlockBitmapToDisk(blockBitmap)
+
+	// Update the inode with the new data blocks
+	for i := 0; i < numBlocks; i++ {
+		inode.Datablocks[i] = freeBlocks[i] + superblock.Datablocksoffset
+	}
+
+	// Pull the inodes from the disk and put this inode onto the inode array in the right place
+	inodes := ReadInodesFromDisk()
+	inodes[inode.Inodenumber] = inode
+
+	// Put the inodes back into the disk
+	WriteInodesToDisk(inodes)
+
+	// Copy the data to the virtual disk
+	start := 0
+	for i := 0; i < numBlocks; i++ {
+		end := start + Blocksize
+		if end > len(data) {
+			end = len(data)
+		}
+		copy(VirtualDisk[inode.Datablocks[i]][:], data[start:end])
+		start = end
+	}
 }
+
 func Open(mode string, filename string, searchnode int) {
 	superblock := ReadSuperblock()
 	switch mode {
@@ -356,7 +407,7 @@ func Open(mode string, filename string, searchnode int) {
 						if blockbitmap[j] == false {
 							blockbitmap[j] = true
 							inodes[i].Datablocks = [4]int{j + superblock.Datablocksoffset, 0, 0, 0}
-							EncodeDirectoryEntryToDisk(newfile, inodes[i].Datablocks[0])
+							EncodeDirectoryEntryToDisk(newfile, inodes[i])
 							break
 						}
 					}
@@ -371,5 +422,66 @@ func Open(mode string, filename string, searchnode int) {
 			AddWorkingDirectoryToDisk(workingdirectory, datablocks)
 			WriteInodesToDisk(inodes)
 		}
+	}
+}
+func Unlink(filename string, searchnode int) {
+	//read inodes and search for correct inode
+	inodes := ReadInodesFromDisk()
+	superblock := ReadSuperblock()
+	var disknode Inode
+	for i := range inodes {
+		if inodes[i].Inodenumber == searchnode {
+			disknode = Inodes[i]
+			break
+		}
+	}
+	//get the datablocks for the inode
+	var datablocks [4]int
+	for i := range disknode.Datablocks {
+		datablocks[i] = disknode.Datablocks[i]
+	}
+	if datablocks[0] == 0 {
+		fmt.Println("No directory present at inode ", searchnode)
+	}
+
+	//get the workingdirectory from the inodes
+	var workinginode int
+	var found bool
+	blockbitmap := bytesToBools(VirtualDisk[superblock.Blockbitmapoffset][:EndBlockBitmap])
+	inodebitmap := bytesToBools(VirtualDisk[superblock.Inodebitmapoffset][:EndInodeBitmap])
+	workingdirectory := ReadFolder(datablocks[0], datablocks[1], datablocks[2], datablocks[3])
+	for i := range workingdirectory.Filenames {
+		if workingdirectory.Filenames[i] == filename {
+			found = true
+			break
+		}
+	}
+	if found == true {
+		for i := range workingdirectory.Filenames {
+			if workingdirectory.Filenames[i] == filename {
+				workingdirectory.Filenames[i] = ""
+				workinginode = workingdirectory.Files[i]
+				workingdirectory.Files[i] = 0
+			}
+		}
+		blockbitmap[inodes[workinginode].Datablocks[0]] = false
+		blockbitmap[inodes[workinginode].Datablocks[1]] = false
+		blockbitmap[inodes[workinginode].Datablocks[2]] = false
+		blockbitmap[inodes[workinginode].Datablocks[3]] = false
+		var emptyarray [1024]byte
+		copy(VirtualDisk[inodes[workinginode].Datablocks[0]][:], emptyarray[:])
+		copy(VirtualDisk[inodes[workinginode].Datablocks[1]][:], emptyarray[:])
+		copy(VirtualDisk[inodes[workinginode].Datablocks[2]][:], emptyarray[:])
+		copy(VirtualDisk[inodes[workinginode].Datablocks[3]][:], emptyarray[:])
+		inodebitmap[workinginode] = false
+		inodes[workinginode].Datablocks = [4]int{0, 0, 0, 0}
+		inodes[workinginode].IsDirectory = false
+		inodes[workinginode].IsValid = false
+		AddBlockBitmapToDisk(blockbitmap)
+		AddInodeBitmapToDisk(inodebitmap)
+		WriteInodesToDisk(inodes)
+		AddWorkingDirectoryToDisk(workingdirectory, datablocks)
+	} else {
+		fmt.Println("Could not find file")
 	}
 }

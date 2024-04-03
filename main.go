@@ -41,6 +41,7 @@ func main() {
 	filesystem.Open("open", "yon.txt", 1)
 	filesystem.Open("open", "yob.txt", 1)
 	disk = filesystem.VirtualDisk
+	filesystem.Unlink("hello.jpg", 1)
 	filesystem.Open("open", "yov.txt", 1)
 	filesystem.Open("open", "yoc.txt", 1)
 	filesystem.Open("open", "yos.txt", 1)
