@@ -28,6 +28,8 @@ func main() {
 	filesystem.Open("open", "hey.txt", 1)
 	filesystem.Open("open", "hey.txt", 1)
 	filesystem.Open("open", "yog.txt", 1)
+	filesystem.Open("write", "hello.jpg", 1)
+	disk = filesystem.VirtualDisk
 	filesystem.Open("open", "yoh.txt", 1)
 	filesystem.Open("open", "yod.txt", 1)
 	filesystem.Open("open", "yos.txt", 1)
@@ -41,7 +43,10 @@ func main() {
 	filesystem.Open("open", "yon.txt", 1)
 	filesystem.Open("open", "yob.txt", 1)
 	disk = filesystem.VirtualDisk
+	inodes = filesystem.ReadInodesFromDisk()
+	fmt.Println(inodes)
 	filesystem.Unlink("hello.jpg", 1)
+	disk = filesystem.VirtualDisk
 	filesystem.Open("open", "yov.txt", 1)
 	filesystem.Open("open", "yoc.txt", 1)
 	filesystem.Open("open", "yos.txt", 1)
