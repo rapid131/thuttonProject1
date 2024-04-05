@@ -20,41 +20,16 @@ import (
 func main() {
 	filesystem.InitializeDisk()
 	disk := filesystem.VirtualDisk
+	filesystem.Open("open", "test.txt", 1)
+	filesystem.Open("write", "test.txt", 1)
+	filesystem.Open("read", "test.txt", 1)
+	disk = filesystem.VirtualDisk
 	inodes := filesystem.ReadInodesFromDisk()
-	fmt.Println(filesystem.LastInodeBlock)
 	fmt.Println(inodes)
-	filesystem.Open("open", "hello.jpg", 1)
-	filesystem.Open("open", "hello.jpg", 1)
-	filesystem.Open("open", "hey.txt", 1)
-	filesystem.Open("open", "hey.txt", 1)
-	filesystem.Open("open", "yog.txt", 1)
-	filesystem.Open("write", "hello.jpg", 1)
+	filesystem.Unlink("test.txt", 1)
+	filesystem.Open("read", "test.txt", 1)
 	disk = filesystem.VirtualDisk
-	filesystem.Open("open", "yoh.txt", 1)
-	filesystem.Open("open", "yod.txt", 1)
-	filesystem.Open("open", "yos.txt", 1)
-	filesystem.Open("open", "yoa.txt", 1)
-	filesystem.Open("open", "yot.txt", 1)
-	filesystem.Open("open", "yop.txt", 1)
-	filesystem.Open("open", "yoo.txt", 1)
-	filesystem.Open("open", "yoi.txt", 1)
-	filesystem.Open("open", "you.txt", 1)
-	filesystem.Open("open", "yom.txt", 1)
-	filesystem.Open("open", "yon.txt", 1)
-	filesystem.Open("open", "yob.txt", 1)
-	disk = filesystem.VirtualDisk
-	inodes = filesystem.ReadInodesFromDisk()
-	fmt.Println(inodes)
-	filesystem.Unlink("hello.jpg", 1)
-	disk = filesystem.VirtualDisk
-	filesystem.Open("open", "yov.txt", 1)
-	filesystem.Open("open", "yoc.txt", 1)
-	filesystem.Open("open", "yos.txt", 1)
-	inodes = filesystem.ReadInodesFromDisk()
-	disk = filesystem.VirtualDisk
-	fmt.Println(inodes)
 	fmt.Println(disk)
-	fmt.Println("what the heck")
 	//got info about bufio and strings from here https://tutorialedge.net/golang/reading-console-input-golang/
 	//create scanner
 	scanner := bufio.NewReader(os.Stdin)
