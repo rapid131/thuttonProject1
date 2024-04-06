@@ -14,6 +14,7 @@ const (
 	Filenamelength = 12
 )
 
+// this is the inode struct
 type Inode struct {
 	IsValid      bool
 	IsDirectory  bool
@@ -22,21 +23,23 @@ type Inode struct {
 	Filemodified time.Time
 	Inodenumber  int
 }
-type Pointerblock struct {
-	Datablocks [4]int
-}
+
+// this is a folder struct
 type Directory struct {
 	Filename  string
 	Inode     int
 	Files     []int
 	Filenames []string
 }
+
+// this is a file struct
 type DirectoryEntry struct {
 	Filename string
 	Inode    int
 	Fileinfo string
 }
 
+// this is the superblock
 type SuperBlock struct {
 	Inodeoffset       int
 	Blockbitmapoffset int
@@ -44,6 +47,7 @@ type SuperBlock struct {
 	Datablocksoffset  int
 }
 
+// these are my globals
 var VirtualDisk [6010][1024]byte
 var BlockBitmap [6000]bool
 var InodeBitmap [120]bool
@@ -155,6 +159,8 @@ func InitializeDisk() {
 	}
 	LastInodeBlock = j
 } // end of initialize disk
+// this function converts a boolean array to bytes
+// boolstobytes and bytestobools comes from https://stackoverflow.com/questions/53924984/bool-array-to-byte-array
 func boolsToBytes(t []bool) []byte {
 	b := make([]byte, (len(t)+7)/8)
 	for i, x := range t {
@@ -165,6 +171,7 @@ func boolsToBytes(t []bool) []byte {
 	return b
 }
 
+// this function converts a byte array to booleans
 func bytesToBools(b []byte) []bool {
 	t := make([]bool, 8*len(b))
 	for i, x := range b {
@@ -176,6 +183,8 @@ func bytesToBools(b []byte) []bool {
 	}
 	return t
 }
+
+// this function reads the superblock by decoding it from VirtualDisk[0]
 func ReadSuperblock() SuperBlock {
 	var superblock SuperBlock
 	decoder := gob.NewDecoder(bytes.NewReader(VirtualDisk[0][:]))
@@ -184,6 +193,8 @@ func ReadSuperblock() SuperBlock {
 	}
 	return superblock
 }
+
+// this function reads a directory by decoding it from up to 4 data blocks
 func ReadFolder(w, x, y, z int) Directory {
 	var directory Directory
 	var blockData []byte
@@ -201,10 +212,12 @@ func ReadFolder(w, x, y, z int) Directory {
 	return directory
 }
 
+// this function reads the inodes from the disk
 func ReadInodesFromDisk() [120]Inode {
 	var inodes [120]Inode
 	var blockData []byte
 	superblock := ReadSuperblock()
+	//outer loop goes from superblock offset to last inode block, inner loop goes from start to end of block
 	for i := superblock.Inodeoffset; i < superblock.Inodeoffset+LastInodeBlock; i++ {
 		for j := 0; j < Blocksize; j++ {
 			blockData = append(blockData, VirtualDisk[i][j])
@@ -213,6 +226,7 @@ func ReadInodesFromDisk() [120]Inode {
 			}
 		}
 	}
+	//decode blockData into inodes
 	buf := bytes.NewBuffer(blockData[:])
 	gob.NewDecoder(buf).Decode(&inodes)
 	return inodes
@@ -229,6 +243,7 @@ func WriteInodesToDisk(x [120]Inode) {
 	EndInodes = len(data)
 	blockSize := Blocksize
 	inodeOffset := int(superblock.Inodeoffset)
+	//write the encoded array to proper disk space
 	for i := 0; i < len(data); i += blockSize {
 		blockIndex := inodeOffset + i/blockSize
 		end := i + blockSize
@@ -259,7 +274,7 @@ func AddInodeBitmapToDisk(x []bool) {
 	}
 }
 
-// this function adds an updated working directory to the disk
+// this function adds an updated working directory to the disk with 4 datablocks for index
 func AddWorkingDirectoryToDisk(directory Directory, datablocks [4]int) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -269,6 +284,7 @@ func AddWorkingDirectoryToDisk(directory Directory, datablocks [4]int) {
 	}
 	data := buf.Bytes()
 	blockIndex := 0
+	//copy to all data blocks to the end of len(data)
 	for i := 0; i < len(data); i += Blocksize {
 		start := i
 		end := start + Blocksize

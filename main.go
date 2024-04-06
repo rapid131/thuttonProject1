@@ -22,7 +22,13 @@ func main() {
 	filesystem.Open("open", "hello.txt", 1)
 	filesystem.Open("write", "hello.txt", 1)
 	filesystem.Open("read", "hello.txt", 1)
+	filesystem.Open("open", "hellur.txt", 1)
+	filesystem.Open("write", "hellur.txt", 1)
 	inodes := filesystem.ReadInodesFromDisk()
+	fmt.Println(inodes)
+	filesystem.Unlink("hellur.txt", 1)
+	filesystem.Unlink("hello.txt", 1)
+	inodes = filesystem.ReadInodesFromDisk()
 	fmt.Println(inodes)
 	//got info about bufio and strings from here https://tutorialedge.net/golang/reading-console-input-golang/
 	//create scanner
