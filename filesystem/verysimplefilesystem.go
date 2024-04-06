@@ -54,8 +54,9 @@ var EndInodes int
 var LastInodeBlock int
 var Nextopeninode int
 
+// this is the function that initializes the disk with a root directory, bitmaps, and 120 inodes
 func InitializeDisk() {
-	//create a enw encoder
+	//create a new encoder
 	var encoder bytes.Buffer
 	enc := gob.NewEncoder(&encoder)
 	var inode Inode
@@ -86,6 +87,7 @@ func InitializeDisk() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	//add the root directory to the disk
 	for i := range encoder.Bytes() {
 		VirtualDisk[9][i] = encoder.Bytes()[i]
 	}
@@ -111,7 +113,7 @@ func InitializeDisk() {
 	superblock.Inodebitmapoffset = 1
 	superblock.Datablocksoffset = 9
 
-	//encode and push the superblock onto block 1
+	//encode and push the superblock onto block 0
 	err = enc.Encode(superblock)
 	if err != nil {
 		log.Fatal(err)
@@ -127,14 +129,14 @@ func InitializeDisk() {
 	for i := range bitmapBytesInode {
 		VirtualDisk[1][i] = bitmapBytesInode[i]
 	}
-	BlockBitmap[0] = true
+
 	bitmapBytesBlocks := boolsToBytes(BlockBitmap[:])
 	EndBlockBitmap = len(bitmapBytesBlocks) - 1
 	for i := range bitmapBytesBlocks {
 		VirtualDisk[2][i] = bitmapBytesBlocks[i]
 	}
 
-	//encode and push the inodes onto the disk
+	// encode and push the inodes onto the disk
 	var buf bytes.Buffer
 	gob.NewEncoder(&buf).Encode(Inodes)
 	data := buf.Bytes()
@@ -152,7 +154,7 @@ func InitializeDisk() {
 		j++
 	}
 	LastInodeBlock = j
-} //end of initialize disk
+} // end of initialize disk
 func boolsToBytes(t []bool) []byte {
 	b := make([]byte, (len(t)+7)/8)
 	for i, x := range t {
@@ -185,12 +187,12 @@ func ReadSuperblock() SuperBlock {
 func ReadFolder(w, x, y, z int) Directory {
 	var directory Directory
 	var blockData []byte
-	//write relevant blocks to blockdata
+	// write relevant blocks to blockdata
 	blockData = append(blockData, VirtualDisk[w][:]...)
 	blockData = append(blockData, VirtualDisk[x][:]...)
 	blockData = append(blockData, VirtualDisk[y][:]...)
 	blockData = append(blockData, VirtualDisk[z][:]...)
-	//decode blockdata
+	// decode blockdata
 	decoder := gob.NewDecoder(bytes.NewReader(blockData))
 	if err := decoder.Decode(&directory); err != nil {
 		fmt.Println("Error decoding directory:", err)
@@ -215,9 +217,12 @@ func ReadInodesFromDisk() [120]Inode {
 	gob.NewDecoder(buf).Decode(&inodes)
 	return inodes
 }
+
+// this function takes an inode struct array and writes it to the appropriate disk space
 func WriteInodesToDisk(x [120]Inode) {
 	var buf bytes.Buffer
 	j := 0
+	//encode the array
 	superblock := ReadSuperblock()
 	gob.NewEncoder(&buf).Encode(x)
 	data := buf.Bytes()
@@ -235,6 +240,8 @@ func WriteInodesToDisk(x [120]Inode) {
 	}
 	LastInodeBlock = j
 }
+
+// this function adds the blockbitmap to the disk
 func AddBlockBitmapToDisk(x []bool) {
 	bitmapBytesBlocks := boolsToBytes(x[:])
 	EndBlockBitmap = len(bitmapBytesBlocks)
@@ -242,6 +249,8 @@ func AddBlockBitmapToDisk(x []bool) {
 		VirtualDisk[2][i] = bitmapBytesBlocks[i]
 	}
 }
+
+// this function adds the inode bitmap to the disk
 func AddInodeBitmapToDisk(x []bool) {
 	bitmapBytesInode := boolsToBytes(x[:])
 	EndInodeBitmap = len(bitmapBytesInode)
@@ -249,6 +258,8 @@ func AddInodeBitmapToDisk(x []bool) {
 		VirtualDisk[1][i] = bitmapBytesInode[i]
 	}
 }
+
+// this function adds an updated working directory to the disk
 func AddWorkingDirectoryToDisk(directory Directory, datablocks [4]int) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -271,25 +282,30 @@ func AddWorkingDirectoryToDisk(directory Directory, datablocks [4]int) {
 		}
 	}
 }
+
+// this function decodes a directory entry at the inode datablocks
 func DecodeDirectoryEntryFromDisk(inode Inode) DirectoryEntry {
 	var entry DirectoryEntry
 	var data []byte
 
-	// Iterate through the data blocks of the inode
+	// iterate through the data blocks of the inode
 	for i := 0; i < len(inode.Datablocks); i++ {
-		// If the data block is not zero
+		// if the data block is not zero
 		if inode.Datablocks[i] != 0 {
 			// Read the data from the data block
 			data = append(data, VirtualDisk[inode.Datablocks[i]][:]...)
 			// Decode the data into DirectoryEntry
 		}
 	}
+	//decode data
 	decoder := gob.NewDecoder(bytes.NewReader(data))
 	if err := decoder.Decode(&entry); err != nil {
 		log.Fatal("Error decoding directory entry:", err)
 	}
 	return entry
 }
+
+// this function encodes a directory entry to the disk, allocates more blocks if needed
 func EncodeDirectoryEntryToDisk(entry DirectoryEntry, inode Inode) Inode {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -367,6 +383,8 @@ func EncodeDirectoryEntryToDisk(entry DirectoryEntry, inode Inode) Inode {
 	return inode
 }
 
+// this is the Open function with open, write, read, and append options. Takes mode, filename, and inode of
+// parent directory as arguments
 func Open(mode string, filename string, searchnode int) {
 	superblock := ReadSuperblock()
 	switch mode {
@@ -408,33 +426,37 @@ func Open(mode string, filename string, searchnode int) {
 			fmt.Println("Found file ", workingfile, " at Inode ", workinginode)
 			//file not found, create it
 		} else {
-			fmt.Println("Creating new file ", filename, " in working directory ", workingdirectory.Filename)
-			//create a file
-			var newfile DirectoryEntry
-			inodebitmap := bytesToBools(VirtualDisk[superblock.Inodebitmapoffset][:EndInodeBitmap])
-			newfile.Filename = filename
-			//get the first free inode
-			for i := range inodebitmap {
-				if inodebitmap[i] == false {
-					//set the inode features
-					inodebitmap[i] = true
-					newfile.Inode = i
-					inodes[i].Filecreated = time.Now()
-					inodes[i].Filemodified = time.Now()
-					inodes[i].IsDirectory = false
-					inodes[i].IsValid = true
-					//get the first free block
-					inodes[i] = EncodeDirectoryEntryToDisk(newfile, inodes[i])
-					//update the working directory
-					workingdirectory.Filenames = append(workingdirectory.Filenames, filename)
-					workingdirectory.Files = append(workingdirectory.Files, i)
-					break
+			if len(filename) > 12 {
+				fmt.Println("Filename exceeds maximum")
+			} else {
+				fmt.Println("Creating new file ", filename, " in working directory ", workingdirectory.Filename)
+				//create a file
+				var newfile DirectoryEntry
+				inodebitmap := bytesToBools(VirtualDisk[superblock.Inodebitmapoffset][:EndInodeBitmap])
+				newfile.Filename = filename
+				//get the first free inode
+				for i := range inodebitmap {
+					if inodebitmap[i] == false {
+						//set the inode features
+						inodebitmap[i] = true
+						newfile.Inode = i
+						inodes[i].Filecreated = time.Now()
+						inodes[i].Filemodified = time.Now()
+						inodes[i].IsDirectory = false
+						inodes[i].IsValid = true
+						//get the first free block
+						inodes[i] = EncodeDirectoryEntryToDisk(newfile, inodes[i])
+						//update the working directory
+						workingdirectory.Filenames = append(workingdirectory.Filenames, filename)
+						workingdirectory.Files = append(workingdirectory.Files, i)
+						break
+					}
 				}
+				AddInodeBitmapToDisk(inodebitmap)
+				AddWorkingDirectoryToDisk(workingdirectory, datablocks)
+				inodes[inode.Inodenumber] = inode
+				WriteInodesToDisk(inodes)
 			}
-			AddInodeBitmapToDisk(inodebitmap)
-			AddWorkingDirectoryToDisk(workingdirectory, datablocks)
-			inodes[inode.Inodenumber] = inode
-			WriteInodesToDisk(inodes)
 		}
 	case "write":
 		//read inodes and search for correct inode
@@ -469,11 +491,15 @@ func Open(mode string, filename string, searchnode int) {
 			}
 		}
 		if found == true {
+			fmt.Println("Writing to file: ", filename)
+			var info string
 			fmt.Println("Please enter a string to write to disk")
+			fmt.Scanln(&info)
 			inode = inodes[workinginode]
 			workingfile = DecodeDirectoryEntryFromDisk(inode)
-			workingfile.Fileinfo = "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaallllllllllllllllllllllllleeeeeeeeeeeeeeeeeeeeeeepppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppphhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
+			workingfile.Fileinfo = info
 			inode = EncodeDirectoryEntryToDisk(workingfile, inode)
+			inode.Filemodified = time.Now()
 			inodes[inode.Inodenumber] = inode
 		} else {
 			fmt.Println("Could not find file")
@@ -521,8 +547,57 @@ func Open(mode string, filename string, searchnode int) {
 			fmt.Println("Could not find file")
 		}
 		WriteInodesToDisk(inodes)
+	case "append":
+		//read inodes and search for correct inode
+		fmt.Println("appending to file: ", filename)
+		inodes := ReadInodesFromDisk()
+		var disknode Inode
+		var inode Inode
+		for i := range inodes {
+			if inodes[i].Inodenumber == searchnode {
+				disknode = Inodes[i]
+				break
+			}
+		}
+		//get the datablocks for the inode
+		var datablocks [4]int
+		for i := range disknode.Datablocks {
+			datablocks[i] = disknode.Datablocks[i]
+		}
+		if datablocks[0] == 0 {
+			fmt.Println("No directory present at inode ", searchnode)
+		}
+
+		//get the workingdirectory from the inodes
+		var workingfile DirectoryEntry
+		var workinginode int
+		var found bool
+		workingdirectory := ReadFolder(datablocks[0], datablocks[1], datablocks[2], datablocks[3])
+		for i := range workingdirectory.Filenames {
+			if workingdirectory.Filenames[i] == filename {
+				workinginode = workingdirectory.Files[i]
+				found = true
+				break
+			}
+		}
+		if found == true {
+			var info string
+			fmt.Println("Please enter a string to append to disk")
+			fmt.Scanln(&info)
+			inode = inodes[workinginode]
+			workingfile = DecodeDirectoryEntryFromDisk(inode)
+			workingfile.Fileinfo = workingfile.Fileinfo + info
+			inode = EncodeDirectoryEntryToDisk(workingfile, inode)
+			inode.Filemodified = time.Now()
+			inodes[inode.Inodenumber] = inode
+		} else {
+			fmt.Println("Could not find file")
+		}
+		WriteInodesToDisk(inodes)
 	}
 }
+
+// this function takes a filename and the inode number of a parent directory and
 func Unlink(filename string, searchnode int) {
 	//read inodes and search for correct inode
 	inodes := ReadInodesFromDisk()
@@ -555,7 +630,9 @@ func Unlink(filename string, searchnode int) {
 			break
 		}
 	}
+	//if found start unlinking and deleting data
 	if found == true {
+		fmt.Println("unlinking file: ", filename)
 		for i := range workingdirectory.Filenames {
 			if workingdirectory.Filenames[i] == filename {
 				workingdirectory.Filenames[i] = ""
@@ -564,12 +641,14 @@ func Unlink(filename string, searchnode int) {
 			}
 		}
 		var emptyarray [1024]byte
+		//adjust the blockbitmap
 		for i := range inodes[workinginode].Datablocks {
 			if inodes[workinginode].Datablocks[i] != 0 {
 				blockbitmap[inodes[workinginode].Datablocks[i]-superblock.Datablocksoffset] = false
 				copy(VirtualDisk[inodes[workinginode].Datablocks[i]][:], emptyarray[:])
 			}
 		}
+		//adjust the inodes
 		inodebitmap[workinginode] = false
 		inodes[workinginode].Datablocks = [4]int{0, 0, 0, 0}
 		inodes[workinginode].IsDirectory = false
@@ -579,6 +658,98 @@ func Unlink(filename string, searchnode int) {
 		WriteInodesToDisk(inodes)
 		AddWorkingDirectoryToDisk(workingdirectory, datablocks)
 	} else {
+		//file not found
 		fmt.Println("Could not find file")
 	}
+}
+func Read(filename string, searchnode int) {
+	//read inodes and search for correct inode
+	inodes := ReadInodesFromDisk()
+	var disknode Inode
+	var inode Inode
+	for i := range inodes {
+		if inodes[i].Inodenumber == searchnode {
+			disknode = Inodes[i]
+			break
+		}
+	}
+	//get the datablocks for the inode
+	var datablocks [4]int
+	for i := range disknode.Datablocks {
+		datablocks[i] = disknode.Datablocks[i]
+	}
+	if datablocks[0] == 0 {
+		fmt.Println("No directory present at inode ", searchnode)
+	}
+
+	//get the workingdirectory from the inodes
+	var workingfile DirectoryEntry
+	var workinginode int
+	var found bool
+	workingdirectory := ReadFolder(datablocks[0], datablocks[1], datablocks[2], datablocks[3])
+	for i := range workingdirectory.Filenames {
+		if workingdirectory.Filenames[i] == filename {
+			workinginode = workingdirectory.Files[i]
+			found = true
+			break
+		}
+	}
+	if found == true {
+		inode = inodes[workinginode]
+		workingfile = DecodeDirectoryEntryFromDisk(inode)
+		fmt.Println("File ", workingfile.Filename, " contains info: ", workingfile.Fileinfo)
+		inode = EncodeDirectoryEntryToDisk(workingfile, inode)
+		inodes[inode.Inodenumber] = inode
+	} else {
+		fmt.Println("Could not find file")
+	}
+	WriteInodesToDisk(inodes)
+}
+func Write(filename string, searchnode int) {
+	//read inodes and search for correct inode
+	inodes := ReadInodesFromDisk()
+	var disknode Inode
+	var inode Inode
+	for i := range inodes {
+		if inodes[i].Inodenumber == searchnode {
+			disknode = Inodes[i]
+			break
+		}
+	}
+	//get the datablocks for the inode
+	var datablocks [4]int
+	for i := range disknode.Datablocks {
+		datablocks[i] = disknode.Datablocks[i]
+	}
+	if datablocks[0] == 0 {
+		fmt.Println("No directory present at inode ", searchnode)
+	}
+
+	//get the workingdirectory from the inodes
+	var workingfile DirectoryEntry
+	var workinginode int
+	var found bool
+	workingdirectory := ReadFolder(datablocks[0], datablocks[1], datablocks[2], datablocks[3])
+	for i := range workingdirectory.Filenames {
+		if workingdirectory.Filenames[i] == filename {
+			workinginode = workingdirectory.Files[i]
+			found = true
+			break
+		}
+	}
+	if found == true {
+		fmt.Println("Writing to file: ", filename)
+		var info string
+		fmt.Println("Please enter a string to write to disk")
+		fmt.Scanln(&info)
+		inode = inodes[workinginode]
+		workingfile = DecodeDirectoryEntryFromDisk(inode)
+		workingfile.Fileinfo = info
+		inode = EncodeDirectoryEntryToDisk(workingfile, inode)
+		inode.Filemodified = time.Now()
+		inodes[inode.Inodenumber] = inode
+	} else {
+		fmt.Println("Could not find file")
+	}
+	WriteInodesToDisk(inodes)
 }

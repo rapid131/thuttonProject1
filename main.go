@@ -19,17 +19,11 @@ import (
 
 func main() {
 	filesystem.InitializeDisk()
-	disk := filesystem.VirtualDisk
-	filesystem.Open("open", "test.txt", 1)
-	filesystem.Open("write", "test.txt", 1)
-	filesystem.Open("read", "test.txt", 1)
-	disk = filesystem.VirtualDisk
+	filesystem.Open("open", "hello.txt", 1)
+	filesystem.Open("write", "hello.txt", 1)
+	filesystem.Open("read", "hello.txt", 1)
 	inodes := filesystem.ReadInodesFromDisk()
 	fmt.Println(inodes)
-	filesystem.Unlink("test.txt", 1)
-	filesystem.Open("read", "test.txt", 1)
-	disk = filesystem.VirtualDisk
-	fmt.Println(disk)
 	//got info about bufio and strings from here https://tutorialedge.net/golang/reading-console-input-golang/
 	//create scanner
 	scanner := bufio.NewReader(os.Stdin)
